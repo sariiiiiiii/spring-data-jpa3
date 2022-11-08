@@ -10,6 +10,10 @@ import static javax.persistence.FetchType.*;
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @ToString(of = { "id", "username", "age" }) // 연관관계를 ToString 했을시에는 무한루프가 걸릴수 있으니 연관관계는 ToString 제외
+@NamedQuery(
+        name = "Member.findByUsername",
+        query = "select m from Member m where m.username = :username"
+)
 public class Member {
 
     @Id @GeneratedValue
@@ -34,6 +38,11 @@ public class Member {
         if (team != null) { // team이 null일시 무시
             changeTeam(team);
         }
+    }
+
+    public Member(String username, int age) {
+        this.username = username;
+        this.age = age;
     }
 
     // 연관관계 편의메소드

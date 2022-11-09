@@ -14,6 +14,11 @@ import static javax.persistence.FetchType.*;
         name = "Member.findByUsername",
         query = "select m from Member m where m.username = :username"
 )
+/**
+ * 실무에서 namedQuery를 잘 안쓰지만 namedQuery에 가장 큰 장점이 있음
+ * 보통 JPQL 작성시 qlString을 잘못입력해도 문자열이기 때문에 애플리케이션 로딩시나 다른 api 실행시에는 오류가 뜨지 않는데
+ * namedQuery의 query는 애플리케이션 로딩시점에 한번 parsing을 해서 오류가 있으면 오류를 알려줌 (강력한 기능)
+ */
 public class Member {
 
     @Id @GeneratedValue

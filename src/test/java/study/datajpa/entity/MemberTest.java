@@ -7,6 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.repository.MemberJpaRepository;
+import study.datajpa.repository.MemberRepository;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -26,6 +27,9 @@ class MemberTest {
 
     @Autowired
     MemberJpaRepository memberJpaRepository;
+
+    @Autowired
+    MemberRepository memberRepository;
 
     @Test
     public void testEntity() {
@@ -87,6 +91,28 @@ class MemberTest {
         // 삭제 카운터 검증
         long deleteCount = memberJpaRepository.count();
         assertThat(deleteCount).isEqualTo(0);
+    }
+
+    @Test
+    public void jpaEventBaseEntity() throws Exception {
+
+        // given
+        Member member = new Member("member1");
+        memberRepository.save(member); // @PrePersist 이벤트 발생
+
+        Thread.sleep(100);
+        member.setUsername("member2");
+        
+        em.flush(); // @PreUpdate 이벤트 발생
+        em.clear();
+
+        // when
+        Member findMember = memberRepository.findById(member.getId()).get();
+
+        // then
+        System.out.println("findMember.getCreatedDate() = " + findMember.getCreatedDate());
+        System.out.println("findMember.getUpdatedDate() = " + findMember.getUpdatedDate());
+
     }
 
 }

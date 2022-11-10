@@ -7,12 +7,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@ToString(of = { "id", "name"})
-public class Team {
+@ToString(of = {"id", "name"})
+public class Team extends JpaBaseEntity {
 
-    @Id @GeneratedValue
+    @Id
+    @GeneratedValue
     @Column(name = "team_id")
     private Long id;
 

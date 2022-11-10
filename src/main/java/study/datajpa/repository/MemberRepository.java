@@ -3,18 +3,18 @@ package study.datajpa.repository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 import study.datajpa.dto.MemberDto;
 import study.datajpa.entity.Member;
 
+import javax.persistence.LockModeType;
+import javax.persistence.QueryHint;
 import javax.swing.text.html.Option;
 import java.util.List;
 import java.util.Optional;
 
-public interface MemberRepository extends JpaRepository<Member, Long> {
+public interface MemberRepository extends JpaRepository<Member, Long>, MemberRepositoryCustom {
 
     /**
      * Interface는 Interface끼리 상속받을 때는 implements가 아닌 extends
@@ -139,7 +139,43 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     @Query(value = "update Member m set m.age = m.age + 1 where m.age >= :age")
     int bulkAgePlus(@Param("age") int age);
 
+    // fetch join
     @Query("select m from Member m join fetch m.team t")
     List<Member> findMember();
+
+    /**
+     * spring data JPA에서는 맨날 @Query fetch join을 할 순 없으니까 @EntityGraph라는걸 지원한다
+     * JpaRepository에 있는 findAll()를 @Override해서 재정의 해서 사용
+     */
+    @Override
+    @EntityGraph(attributePaths = {"team"}) // member를 조회할 떄 team까지 같이 조회 (내부적으로 fetch join)
+    List<Member> findAll();
+
+    /**
+     * JPQL로 query를 짜고 싶은데 fetch join만 살짝 곁들이고 싶으면 @Query, @EntityGraph 동시 사용
+     */
+    @EntityGraph(attributePaths = {"team"})
+    @Query("select m from Member m")
+    List<Member> findMemberEntityGraph();
+
+    /**
+     * 쿼리 메소드와 @EntityGraph 같이 사용
+     */
+    @EntityGraph(attributePaths = {"team"})
+    List<Member> findEntityGraphByUsername(@Param("username") String username);
+
+    /**
+     * JPA Hint
+     * 조회 최적화
+     */
+    @QueryHints(value = @QueryHint(name = "org.hibernate.readOnly", value = "true"))
+    Member findReadOnlyByusername(String username);
+
+    /**
+     * JPA LOCK
+     * 조회할 때도 다른사람이 조회하지 못하도록 LOCK (select for update)
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    List<Member> findLockByusername(String username);
 
 }

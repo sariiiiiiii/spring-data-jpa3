@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.repository.query.Param;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.dto.MemberDto;
@@ -468,7 +469,7 @@ class MemberRepositoryTest {
         List<Member> members = memberRepository.findAll(); // Member만 가지고옴 team은 가짜객체로
         for (Member member : members) {
             System.out.println("member = " + member.getUsername()); // Member 이름 (영속성 컨텍스트)
-            System.out.println("member.getClass() = " + member.getClass());
+            System.out.println("member.getClass() = " + member.getClass()); // entity
             System.out.println("member.getTeam().getClass() = " + member.getTeam().getClass()); // Member만 가지고 와서 Member.team은 null로 둘 순 없으니까 proxy라는 텅텅 빈 가짜 객체
             System.out.println("member.getTeam().getName() = " + member.getTeam().getName());  // 실제 호출해서 DB에 query (프록시 초기화)
         }
@@ -493,11 +494,109 @@ class MemberRepositoryTest {
         List<Member> members = memberRepository.findMember();
         for (Member member : members) {
             System.out.println("member = " + member.getUsername());
+            System.out.println("member.getClass() = " + member.getClass()); // entity
+            System.out.println("member.getTeam().getClass() = " + member.getTeam().getClass()); // entity
+            System.out.println("member.getTeam().getName() = " + member.getTeam().getName()); // entity
+        }
+    }
+
+    /**
+     * @EntityGraph를 이용한 조회
+     */
+    @Test
+    public void entityGraph() {
+
+        Team teamA = new Team("teamA");
+        Team teamB = new Team("teamB");
+        teamRepository.save(teamA);
+        teamRepository.save(teamB);
+
+        Member member1 = new Member("member1", 10, teamA);
+        Member member2 = new Member("member2", 10, teamB);
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        List<Member> members = memberRepository.findAll();
+        for (Member member : members) {
+            System.out.println("member = " + member);
             System.out.println("member.getClass() = " + member.getClass());
+            System.out.println("member.getTeam().getName() = " + member.getTeam().getName());
             System.out.println("member.getTeam().getClass() = " + member.getTeam().getClass());
+        }
+
+        List<Member> memberEntityGraph = memberRepository.findMemberEntityGraph();
+        for (Member member : memberEntityGraph) {
+            System.out.println("member = " + member);
             System.out.println("member.getTeam().getName() = " + member.getTeam().getName());
         }
 
+        List<Member> member11 = memberRepository.findEntityGraphByUsername("member1");
+        for (Member member : member11) {
+            System.out.println("member = " + member);
+        }
+    }
+
+    @Test
+    public void queryHint() {
+
+        // given
+        Member member = new Member("member1", 10);
+        memberRepository.save(member); // JPA 영속성 컨텍스트에 넣어놓고
+        em.flush(); // 강제 DB query날림
+        em.clear(); // 영속성 컨텍스트 싹 비우기
+        // clear() 이 후 영속성 컨텍스트를 싹 날려버렸기 때문에 JPA에서 조회를 하면 영속성 컨텍스트에서 조회하는것이 아니라 DB에서 다시 조회
+
+        // when
+        Member findMember = memberRepository.findById(member.getId()).get();
+        findMember.setUsername("member2");
+
+        /**
+         * 변경감지에 치명적인 단점은 객체를 2개를 관리해야한다는 것
+         *   ㄴ 변경감지를 할려면 원본 객체랑 비교를 해야 뭐가 달라진지 알기 때문에 원본 객체 + 변경한 객체
+         */
+        em.flush(); // 변경감지(더티체킹) update query
+
+        /**
+         * 하이버네이트는 (JPA아님) 단순 조회용으로 하게끔 Hint를 열어놨음
+         * @QueryHint로 readOnly된 조회대상은 스냅샷을 안만들어 놓으며 값을 수정할 수 없음
+         *   ㄴ update query 자체가 안나감
+         */
+        Member readOnlyMember = memberRepository.findReadOnlyByusername("member2");
+        readOnlyMember.setUsername("memberAAA");
+
+    }
+
+    @Test
+    public void lock() {
+        // given
+        Member member = new Member("member1", 10);
+        memberRepository.save(member);
+        em.flush();
+        em.clear();
+
+        // when
+        /**
+         * SQL문 뒤에 for update 쿼리가 나감
+         */
+        List<Member> members = memberRepository.findLockByusername("member1");
+    }
+
+    /**
+     * 사용자 정의 레포지토리 인터페이스 구현
+     */
+    @Test
+    public void callCustom() {
+
+        memberRepository.save(new Member("memberA", 10));
+        memberRepository.save(new Member("memberA", 20));
+
+        em.flush();
+        em.clear();
+
+        List<Member> members = memberRepository.findMemberCustom("memberA");
+        for (Member member : members) {
+            System.out.println("member = " + member.getUsername());
+        }
     }
 
 }
